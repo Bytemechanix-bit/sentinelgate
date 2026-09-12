@@ -81,9 +81,9 @@ class FirewallEngine:
         path = Path(ruleset_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.policy.to_nftables(), encoding="utf-8")
-        check = subprocess.run(["nft", "-c", "-f", str(path)], capture_output=True, text=True)
+        check = subprocess.run(["nft", "-c", "-f", str(path)], capture_output=True, text=True, check=False)
         if check.returncode != 0:
             raise RuntimeError(f"nft validation failed: {check.stderr.strip()}")
-        result = subprocess.run(["nft", "-f", str(path)], capture_output=True, text=True)
+        result = subprocess.run(["nft", "-f", str(path)], capture_output=True, text=True, check=False)
         if result.returncode != 0:
             raise RuntimeError(f"nft load failed: {result.stderr.strip()}")
