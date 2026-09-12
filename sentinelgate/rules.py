@@ -137,7 +137,7 @@ class Policy:
         self.validate()
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "Policy":
+    def from_yaml(cls, path: str | Path) -> Policy:
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         if not isinstance(raw, dict):
             raise TypeError("policy YAML must contain an object at the top level")
