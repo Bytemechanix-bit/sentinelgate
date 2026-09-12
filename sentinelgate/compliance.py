@@ -26,7 +26,7 @@ def generate_report(policy: Policy) -> str:
         "> This is an audit-support artifact. It maps declared policy controls to PCI DSS references; it does not establish compliance or replace a qualified assessment.",
         "",
         "## Assessment snapshot",
-        f"- Policy validation: **PASS**",
+        "- Policy validation: **PASS**",
         f"- Default posture: **{policy.default_action.value.upper()}**",
         f"- Rules: **{len(policy.rules)}**",
         f"- Rules with PCI DSS references: **{sum(bool(r.pci_dss_ref) for r in policy.rules)}/{len(policy.rules)}**",
