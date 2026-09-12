@@ -1,0 +1,46 @@
+name: "edge-gateway-baseline"
+default_action: deny
+
+rules:
+  - name: "block-known-bad-range"
+    priority: 10
+    action: deny
+    src: "185.220.101.0/24"
+    comment: "Block known abusive source range before service allow rules."
+    pci_dss_ref: "1.2.1"
+
+  - name: "block-legacy-plaintext-services"
+    priority: 20
+    action: deny
+    protocol: tcp
+    dst_port: "21,23,80"
+    comment: "Explicitly block FTP, Telnet, and unencrypted HTTP."
+    pci_dss_ref: "1.2.5"
+
+  - name: "allow-ssh-from-admin-subnet"
+    priority: 30
+    action: rate_limit
+    protocol: tcp
+    src: "203.0.113.0/24"
+    dst_port: 22
+    rate_limit: "5/second"
+    comment: "SSH management access restricted to the admin VPN range and rate-limited."
+    pci_dss_ref: "1.3.1"
+
+  - name: "allow-https-inbound"
+    priority: 40
+    action: rate_limit
+    protocol: tcp
+    dst_port: 443
+    rate_limit: "100/second"
+    comment: "Public HTTPS service with a packet-rate guardrail."
+    pci_dss_ref: "1.2.1"
+
+  - name: "allow-dns-outbound"
+    priority: 50
+    action: allow
+    protocol: udp
+    dst: "8.8.8.8/32,1.1.1.1/32"
+    dst_port: 53
+    comment: "Outbound DNS restricted to approved resolvers only."
+    pci_dss_ref: "1.3.2"
