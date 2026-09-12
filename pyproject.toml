@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinelgate"
+version = "2.0.0"
+description = "Policy-as-code zero-trust firewall engine with simulation, nftables rendering, and PCI DSS evidence mapping."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Yogesh Rajaram" }]
+keywords = ["firewall", "security", "nftables", "zero-trust", "policy-as-code", "compliance", "pci-dss"]
+dependencies = ["PyYAML>=6.0", "click>=8.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6", "bandit>=1.7"]
+
+[project.scripts]
+sentinelgate = "sentinelgate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sentinelgate*"]
