@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -31,22 +30,20 @@ class Rule:
     protocol: Protocol = Protocol.ANY
     src: str = "any"
     dst: str = "any"
-    dst_port: Optional[str] = None
-    rate_limit: Optional[str] = None
+    dst_port: str | None = None
+    rate_limit: str | None = None
     comment: str = ""
-    pci_dss_ref: Optional[str] = None
+    pci_dss_ref: str | None = None
     priority: int = 100
 
-    def matches(self, pkt: "Packet") -> bool:
+    def matches(self, pkt: Packet) -> bool:
         if self.protocol != Protocol.ANY and pkt.protocol.lower() != self.protocol.value:
             return False
         if not self._ip_matches(self.src, pkt.src_ip):
             return False
         if not self._ip_matches(self.dst, pkt.dst_ip):
             return False
-        if self.dst_port and not self._port_matches(self.dst_port, pkt.dst_port):
-            return False
-        return True
+        return not self.dst_port or self._port_matches(self.dst_port, pkt.dst_port)
 
     @staticmethod
     def _ip_matches(rule_val: str, pkt_ip: str) -> bool:
@@ -67,7 +64,7 @@ class Rule:
         return False
 
     @staticmethod
-    def _port_matches(rule_val: str, pkt_port: Optional[int]) -> bool:
+    def _port_matches(rule_val: str, pkt_port: int | None) -> bool:
         if pkt_port is None:
             return False
         for part in rule_val.split(","):
@@ -124,8 +121,8 @@ class Packet:
     src_ip: str
     dst_ip: str
     protocol: str
-    dst_port: Optional[int] = None
-    src_port: Optional[int] = None
+    dst_port: int | None = None
+    src_port: int | None = None
 
 
 @dataclass
@@ -143,7 +140,7 @@ class Policy:
     def from_yaml(cls, path: str | Path) -> "Policy":
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         if not isinstance(raw, dict):
-            raise ValueError("policy YAML must contain an object at the top level")
+            raise TypeError("policy YAML must contain an object at the top level")
         default_action = Action(raw.get("default_action", "deny"))
         rules = []
         for r in raw.get("rules", []):
