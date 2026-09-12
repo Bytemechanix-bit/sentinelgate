@@ -1,4 +1,5 @@
 import pytest
+
 from sentinelgate.rules import Action, Packet, Policy, Protocol, Rule
 
 
