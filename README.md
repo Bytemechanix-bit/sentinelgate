@@ -1,103 +1,83 @@
-# SentinelGate 2.0
+# SentinelGate
 
-**Policy-as-code, zero-trust network enforcement with deterministic simulation, nftables rendering, validation, and PCI DSS evidence mapping.**
+SentinelGate is a policy-driven Linux firewall engine built around **policy-as-code**. Security rules live in YAML, are validated and tested before deployment, and can be rendered into nftables rules for Linux.
 
-SentinelGate treats firewall policy as code: the same YAML policy is validated, simulated without root/network access, rendered to nftables, and mapped to compliance evidence.
+## Five layers
 
-## What changed in 2.0
+1. **Policy** — define allow, deny, and rate-limit rules in YAML.
+2. **Validation & conflict detection** — catch malformed rules and ambiguous overlapping rules with different actions at the same priority before deployment.
+3. **Simulation** — exercise packets against the policy without touching the host firewall.
+4. **Enforcement & real Linux testing** — render nftables and validate the generated ruleset against a real Linux nftables installation in CI.
+5. **Audit & controlled change** — write timestamped JSONL audit events and require an approval record bound to the exact policy hash before live deployment.
 
-- **Policy validation** catches invalid IPs/CIDRs, ports, rate limits, duplicate names, missing justifications, and invalid combinations before deployment.
-- **Explicit priorities** make rule ordering deterministic and auditable.
-- **Improved state simulation** tracks source/destination ports and recognizes reverse-direction established traffic.
-- **Rate limiting stays outside the state cache**, preventing a rate-limited flow from bypassing the limiter.
-- **IPv6-aware matching/rendering** is supported.
-- **Machine-readable simulation** is available with `--json-output` for SIEM/automation integration.
-- **Live apply is guarded** by an explicit `--yes`, root check, and `nft -c` configuration validation before load.
-- Compliance output is positioned as **audit evidence/support**, not a compliance certification.
+## Why this is useful
 
-## Architecture
+The main goal is not to replace nftables. Linux/nftables remains the enforcement layer. SentinelGate provides a repeatable way to define, review, test, and audit the policy that gets enforced.
 
-```text
-                policy.yaml
-                    |
-          +---------v----------+
-          | validation + model |
-          +---------+----------+
-                    |
-        +-----------+-----------+
-        |                       |
-        v                       v
- deterministic simulator    nftables renderer
-        |                       |
-        v                       v
-  verdict / JSON logs       Linux enforcement
-        |
-        v
- PCI DSS evidence mapping
-```
-
-## Install
+## Quick start
 
 ```bash
 pip install -e ".[dev]"
-```
-
-## Commands
-
-```bash
-# Validate before doing anything else
-sentinelgate validate policies/example.yaml
-
-# Review generated nftables
+sentinelgate validate policies/example.yaml --fail-on-conflict
+sentinelgate conflicts policies/example.yaml
 sentinelgate render policies/example.yaml
-
-# Simulate representative traffic
-sentinelgate simulate policies/example.yaml
-
-# Machine-readable output
-sentinelgate simulate policies/example.yaml --json-output
-
-# Generate compliance evidence mapping
-sentinelgate report policies/example.yaml > compliance_report.md
-
-# Live deployment — Linux + nftables + root; intentionally explicit
-sudo sentinelgate apply policies/example.yaml --yes
+sentinelgate simulate policies/example.yaml --json-output --audit-log /tmp/sentinelgate-audit.jsonl
+sentinelgate report policies/example.yaml
 ```
 
-## Security model
+## Rule conflict detection
 
-1. **Default deny is enforced in the data model.** A policy cannot opt into default allow.
-2. **Rules have explicit priorities.** Lower numbers are evaluated first, preventing accidental dependence on YAML order.
-3. **Every rule requires a human-readable justification.** This creates useful review/audit context.
-4. **Established flows are simulated with a five-tuple** (source/destination IP, protocol, source/destination port), including reverse traffic.
-5. **Rate-limited rules are evaluated per packet** and are never promoted into the established-flow cache.
-6. **Live deployment validates the generated nftables configuration with `nft -c` before loading it.**
-
-## Important scope boundary
-
-The Python simulator is a **test model**, not a replacement for the Linux kernel's conntrack implementation. It is intentionally deterministic and lightweight. Production validation should include integration tests on the target Linux/nftables version.
-
-Likewise, PCI DSS mappings are **control/evidence references**, not an attestation of compliance.
-
-## Testing
+SentinelGate flags ambiguous overlaps where rules have different actions and the same priority. Different priorities are treated as an explicit precedence decision, so intentional block-before-allow or allow-before-block policies are not incorrectly reported as conflicts.
 
 ```bash
-pytest -q
+sentinelgate conflicts policies/example.yaml
 ```
 
-The tests cover default-deny behavior, IPv4/IPv6 matching, port validation, priority ordering, reverse-flow state handling, rate limiting, and nftables rendering.
+## Audit trail
 
-## Recommended next steps
+Simulation can write timestamped JSON Lines events:
 
-- nftables integration tests in a disposable Linux network namespace
-- rule shadow/conflict analysis
-- signed/versioned policy bundles
-- JSONL audit logs with timestamps and policy hashes
-- Prometheus metrics
-- SIEM export
-- RBAC and approval workflow for live policy changes
-- formal PCI DSS evidence objects with owner/status/review date
+```bash
+sentinelgate simulate policies/example.yaml --audit-log /tmp/sentinelgate-audit.jsonl
+```
+
+The log captures the decision, matched rule, traffic details, reason, and UTC timestamp. Deployment also records the approved policy hash and approver.
+
+## Controlled deployment
+
+Live deployment is deliberately guarded. A policy must be reviewed and approved separately, the approval is tied to the SHA-256 hash of the policy file, and the requester cannot be the approver when both identities are supplied.
+
+```bash
+sentinelgate approve policies/example.yaml --approver "reviewer-name"
+SENTINELGATE_REQUESTER="change-author" sentinelgate apply policies/example.yaml \
+  --approval .sentinelgate/approvals/example.json --yes
+```
+
+`apply` also validates the generated ruleset with `nft -c` before loading it. **Do not run live apply on a production or primary workstation without reviewing the generated ruleset first.** The default renderer uses `flush ruleset`.
+
+For a real team, the approval command should be paired with GitHub branch protection/rulesets that require pull-request review and prevent direct pushes to `main`. The local approval record demonstrates the change-control logic inside the project; GitHub is the appropriate place to enforce the human approval gate.
+
+## Real Linux integration tests
+
+The integration suite uses an actual Linux `nft` binary and runs in a dedicated Ubuntu GitHub Actions job. It validates the generated ruleset with `nft -c`, so the project is tested against the real Linux firewall tool rather than only the Python simulator. A production-grade test environment can extend this to an isolated network namespace and actual packet flows.
+
+## CI / DevSecOps
+
+GitHub Actions runs:
+
+- Ruff linting
+- Bandit security scanning
+- Pytest unit tests
+- Policy validation and conflict checks
+- nftables rendering/simulation checks
+- A real Linux/nftables integration validation
+
+This makes security and quality checks part of the development workflow instead of a manual final step.
+
+## Scope
+
+SentinelGate currently targets **Linux host inbound filtering**. The generated ruleset uses an `input` chain. It is not yet a complete router/gateway implementation with forwarding, NAT, or outbound policy enforcement.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT

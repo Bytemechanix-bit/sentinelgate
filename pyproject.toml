@@ -21,3 +21,6 @@ sentinelgate = "sentinelgate.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["sentinelgate*"]
+
+[tool.pytest.ini_options]
+markers = ["integration: tests requiring a real Linux nftables environment"]

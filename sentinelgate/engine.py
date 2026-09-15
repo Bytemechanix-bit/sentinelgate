@@ -1,8 +1,9 @@
-"""Deterministic stateful policy simulation and guarded nftables deployment."""
+"""Deterministic policy simulation and guarded nftables deployment."""
 from __future__ import annotations
 
+import os
 import shutil
-import subprocess  # nosec B404 - subprocess is required for guarded nftables deployment
+import subprocess  # nosec B404 - required for guarded nftables deployment
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -49,10 +50,8 @@ class FirewallEngine:
         return (pkt.dst_ip, pkt.src_ip, pkt.protocol.lower(), pkt.dst_port, pkt.src_port)
 
     def evaluate(self, pkt: Packet) -> Verdict:
-        # Only non-rate-limited allowed flows enter the simulated state table.
         if self._flow_key(pkt) in self._established or self._reverse_key(pkt) in self._established:
             return self._record(Verdict(pkt, Action.ALLOW, "ESTABLISHED", "existing connection"))
-
         for rule in self.policy.ordered_rules():
             if not rule.matches(pkt):
                 continue
@@ -77,14 +76,14 @@ class FirewallEngine:
         nft = shutil.which("nft")
         if nft is None:
             raise RuntimeError("nft binary not found; live mode requires nftables on Linux")
-        if hasattr(__import__("os"), "geteuid") and __import__("os").geteuid() != 0:
+        if hasattr(os, "geteuid") and os.geteuid() != 0:
             raise PermissionError("live apply requires root privileges")
         path = Path(ruleset_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.policy.to_nftables(), encoding="utf-8")
-        check = subprocess.run([nft, "-c", "-f", str(path)], capture_output=True, text=True, check=False)  # nosec B603 - executable is resolved with shutil.which and arguments are fixed
+        check = subprocess.run([nft, "-c", "-f", str(path)], capture_output=True, text=True, check=False)  # nosec B603
         if check.returncode != 0:
             raise RuntimeError(f"nft validation failed: {check.stderr.strip()}")
-        result = subprocess.run([nft, "-f", str(path)], capture_output=True, text=True, check=False)  # nosec B603 - executable is resolved with shutil.which and arguments are fixed
+        result = subprocess.run([nft, "-f", str(path)], capture_output=True, text=True, check=False)  # nosec B603
         if result.returncode != 0:
             raise RuntimeError(f"nft load failed: {result.stderr.strip()}")
