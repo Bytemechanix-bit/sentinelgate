@@ -1,6 +1,10 @@
 import pytest
 
-from sentinelgate.change_control import detect_conflicts, verify_approval, write_approval
+from sentinelgate.change_control import (
+    detect_conflicts,
+    verify_approval,
+    write_approval,
+)
 from sentinelgate.rules import Action, Policy, Protocol, Rule
 
 
