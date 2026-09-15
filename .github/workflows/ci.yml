@@ -48,4 +48,4 @@ jobs:
       - name: Install package + test dependencies
         run: pip install -e ".[dev]"
       - name: Validate generated ruleset with real nftables
-        run: sudo -E pytest -q -m integration
+        run: sudo -E "${{ env.pythonLocation }}/bin/python" -m pytest -q -m integration
