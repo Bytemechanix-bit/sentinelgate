@@ -6,7 +6,12 @@ import os
 
 import click
 
-from .change_control import append_audit, detect_conflicts, verify_approval, write_approval
+from .change_control import (
+    append_audit,
+    detect_conflicts,
+    verify_approval,
+    write_approval,
+)
 from .compliance import generate_report
 from .engine import FirewallEngine
 from .rules import Packet, Policy
