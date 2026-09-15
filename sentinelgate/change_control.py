@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .rules import Action, Policy, Protocol, Rule
+from .rules import Policy, Protocol, Rule
 
 
 def _networks(value: str) -> list[ipaddress._BaseNetwork] | None:
